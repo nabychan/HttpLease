@@ -25,6 +25,9 @@ namespace HttpLease.Tests
         [Url("/Api/Test")]
         string Post(long post, [Field(Name = "")]string value);
         [HttpPost]
+        [Url("/Api/Test")]
+        string PostBody(long post, [Body]string value);
+        [HttpPost]
         [Url("/Api/Test/{id}")]
         string Post2(long id, string value);
         [HttpPost]
@@ -33,6 +36,9 @@ namespace HttpLease.Tests
         [HttpPost]
         [Url("/Api/Obj/{id}")]
         string Post4(long id, [FieldMap]PostRequest value, [FieldMap]PostRequest2 value2);
+        [HttpPut]
+        [Url("/Api/Obj")]
+        string Put5([Field]PutRequest.C[] A, [Field]string B);
         [Multipart]
         [HttpPost]
         [Url("/File/Index")]

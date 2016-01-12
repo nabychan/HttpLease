@@ -30,6 +30,8 @@ namespace HttpLease.Behaviors
         /// 包含的Part参数
         /// </summary>
         MultiPartParameters PartKeys { get; }
+        IHttpBodyBehavior BodyKey { get; set; }
+
         CookieContainer CookieContainer { get; }
         string Host { get; }
         MethodKind Method { get; }
@@ -44,7 +46,9 @@ namespace HttpLease.Behaviors
         Encoding Encoding { get; }
         Formatters.IFormatter Formatter { get; }
         IDictionary<string, string> FiexdHeaders { get; }
+        int Timeout { get; }
         Type ReturnType { get; }
+        Encoding ResponseEncoding { get; }
 
         bool IsMatch(Castle.DynamicProxy.IInvocation invocation);
         void Verify();
@@ -90,6 +94,7 @@ namespace HttpLease.Behaviors
             PartKeys = new MultiPartParameters(config.Encoding);
             FiexdHeaders = new Dictionary<string, string>(config.FiexdHeaders);
             Encoding = config.Encoding;
+            ResponseEncoding = config.ResponseEncoding;
             Host = config.Host;
             Formatter = config.Formatter;
             ReturnType = methodInfo.ReturnType;
@@ -101,9 +106,12 @@ namespace HttpLease.Behaviors
         public List<IHttpStringParameterBehavior> QueryKeys { get; private set; }
         public List<IHttpStringParameterBehavior> FieldKeys { get; private set; }
         public MultiPartParameters PartKeys { get; private set; }
+        public IHttpBodyBehavior BodyKey { get; set; }
         public string Url { get; set; }
         public bool IsWithPath { get; set; }
+        public int Timeout { get; set; }
         public Encoding Encoding { get; set; }
+        public Encoding ResponseEncoding { get; set; }
         public MethodKind Method { get; set; }
         public CookieContainer CookieContainer { get; private set; }
         public string Host { get; private set; }
@@ -149,12 +157,19 @@ namespace HttpLease.Behaviors
             }
 
             var request = (HttpWebRequest)WebRequest.Create(url);
+            if (Timeout > 0)
+                request.Timeout = Timeout;
             request.CookieContainer = CookieContainer;
             request.Method = Method.ToString();
-            request.Accept = FiexdHeaders[Headers.Accept];
-            request.ContentType = FiexdHeaders[Headers.ContentType];
-            request.Headers[Headers.CacheControl] = FiexdHeaders[Headers.CacheControl];
-            request.Headers[Headers.AcceptLanguage] = FiexdHeaders[Headers.AcceptLanguage];
+            if (FiexdHeaders.ContainsKey(Headers.Accept))
+                request.Accept = FiexdHeaders[Headers.Accept];
+            if (FiexdHeaders.ContainsKey(Headers.ContentType))
+                request.ContentType = FiexdHeaders[Headers.ContentType];
+            if (FiexdHeaders.ContainsKey(Headers.CacheControl))
+                request.Headers[Headers.CacheControl] = FiexdHeaders[Headers.CacheControl];
+            if (FiexdHeaders.ContainsKey(Headers.AcceptLanguage))
+                request.Headers[Headers.AcceptLanguage] = FiexdHeaders[Headers.AcceptLanguage];
+            if (FiexdHeaders.ContainsKey(Headers.AcceptEncoding))
             request.Headers[Headers.AcceptEncoding] = FiexdHeaders[Headers.AcceptEncoding];
             if (Host != null)
             {
@@ -172,6 +187,8 @@ namespace HttpLease.Behaviors
             {
                 fields.Add(item.GetRequestString(args));
             }
+            if(BodyKey != null)
+                fields.Add(BodyKey.GetRequestString(args));
 
             if(MethodKind.GET != Method)
             {
@@ -212,8 +229,22 @@ namespace HttpLease.Behaviors
 
         public void Verify()
         {
-            if (MethodKind.GET == Method && FieldKeys.Count > 0)
-                throw new Exception("get 情况不能使用 Field");
+            if (MethodKind.GET == Method)
+            {
+                if (FieldKeys.Count > 0)
+                    throw new Exception("get 情况不能使用 Field");
+                if (BodyKey != null)
+                    throw new Exception("get 情况不能使用 Body");
+            }
+            if (BodyKey != null)
+            {
+                if(FiexdHeaders[Headers.ContentType] == MultipartAttribute.MultipartContentType)
+                    throw new Exception("使用 Body 时不能使用 Multipart");
+                if (FieldKeys.Count > 0)
+                    throw new Exception("使用 Body 时不能使用 Field");
+                if (PathKeys.Count > 0)
+                    throw new Exception("使用 Body 时不能使用 Path");
+            }
             if (FiexdHeaders[Headers.ContentType] != MultipartAttribute.MultipartContentType && PartKeys.Count > 0)
                 throw new Exception("part 只能配合 Multipart使用");
         }

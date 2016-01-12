@@ -42,10 +42,14 @@ namespace HttpLease.Behaviors
                 behavior.FiexdHeaders[Headers.ContentType] = enctypeAttr.ContentType;
             }
 
+            var timeout = methodAttrs.FirstOrDefault(a => a is TimeoutAttribute) as TimeoutAttribute;
+            if (timeout != null)
+                behavior.Timeout = timeout.Timeout;
+
             var url = String.Empty;
             var urlAttr = methodAttrs.FirstOrDefault(a => a is UrlAttribute) as UrlAttribute;
             if (urlAttr != null && urlAttr.Url != null)
-                url = urlAttr.Url.ToLower().Trim();
+                url = urlAttr.Url.Trim();
 
             var urlPathIndexs = new Dictionary<int, string>(); 
 
@@ -59,7 +63,7 @@ namespace HttpLease.Behaviors
                     return "{" + r + "}";
                 }));
                 behavior.IsWithPath = behavior.Url != url;
-                if (!behavior.Url.StartsWith("http"))
+                if (!behavior.Url.ToLower().StartsWith("http"))
                 {
                     if (!behavior.Url.StartsWith("/"))
                         behavior.Url = "/" + behavior.Url;
@@ -75,7 +79,7 @@ namespace HttpLease.Behaviors
             for (var i = 0; i < parameters.Length; i++)
             {
                 var param = parameters[i];
-                var paramName = param.Name.ToLower();
+                var paramName = param.Name;
                 var parmeterAttr = param.GetCustomAttributes(typeof(ParameterAttribute), false).FirstOrDefault() as ParameterAttribute;
                 if (parmeterAttr == null || parmeterAttr is PathAttribute)
                 {
@@ -109,6 +113,7 @@ namespace HttpLease.Behaviors
                 add = add || ParameterBehavior(behavior, paramName, parmeterAttr as FieldMapAttribute, enctypeAttr, i, config.Encoding, config.Formatter);
                 add = add || ParameterBehavior(behavior, paramName, parmeterAttr as PartAttribute, enctypeAttr, i, config.Encoding, config.Formatter);
                 add = add || ParameterBehavior(behavior, paramName, parmeterAttr as QueryAttribute, enctypeAttr, i, config.Encoding, config.Formatter);
+                add = add || ParameterBehavior(behavior, paramName, parmeterAttr as BodyAttribute, i);
             }
 
             behavior.Verify();
@@ -127,6 +132,15 @@ namespace HttpLease.Behaviors
                 }
             }
             return null;
+        }
+
+        private bool ParameterBehavior(IHttpBehavior behavior, string paramName, BodyAttribute attr, int argIndex)
+        {
+            if (attr == null) return false;
+            if (behavior.BodyKey != null)
+                throw new Exception("只能设置一次body");
+            behavior.BodyKey = new HttpBodyBehavior(argIndex);
+            return true;
         }
 
         private bool ParameterBehavior(IHttpBehavior behavior, string paramName, HeaderAttribute attr, int argIndex, Encoding encoding, Formatters.IFormatter formatter)

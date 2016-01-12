@@ -38,7 +38,7 @@ namespace HttpLease.Proxy
                 var behavoir = _Behaviors.First(b => b.IsMatch(invocation));
                 var request = behavoir.CreateHttpWebRequest(invocation.Arguments);
 
-                var response = new HttpResponse((System.Net.HttpWebResponse)request.GetResponse());
+                var response = new HttpResponse((System.Net.HttpWebResponse)request.GetResponse(), behavoir.ResponseEncoding);
                 object result = null;
                 if (response.TryConvert(behavoir.ReturnType, out result))
                 {
@@ -63,7 +63,7 @@ namespace HttpLease.Proxy
 
         public HttpLeaseProxy(IConfig config)
         {
-            Config = config;
+            Config = new Config(config);
         }
 
         private T CreateInstance()
